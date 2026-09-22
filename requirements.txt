@@ -1,0 +1,15 @@
+# Core — the tool runs fully on just these, with no credentials.
+requests>=2.31
+beautifulsoup4>=4.12
+openpyxl>=3.1
+
+# Headless-scraped portals (sources/headless.py + sources/scraped.py).
+# Optional: without it, those sources skip honestly with a one-line reason.
+# Selenium Manager downloads the matching chromedriver on first use.
+selenium>=4.20
+
+# CV tailoring + apply pipeline (apply.py, the GUI "Prepare / apply" button,
+# and the config-gated Claude JD analyzer). All optional.
+anthropic>=0.40        # Claude client — reads ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK
+python-docx>=1.1       # read the master CV .docx and write the tailored copy
+docx2pdf>=0.1.8        # convert the tailored .docx to PDF via MS Word (Windows only)

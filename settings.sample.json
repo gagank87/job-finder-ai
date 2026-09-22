@@ -1,0 +1,21 @@
+{
+  "_comment": "Saved settings for a headless / scheduled run: python jobfinder.py --headless --config settings.json . Copy this to settings.json and edit. Only sources that need no pasted URL run unattended (LinkedIn, aggregators, India boards); 'careers' still works for companies whose ATS auto-detects, and 'workday' entries must include their full URL below.",
+
+  "roles": ["Product Analyst", "Data Analyst", "Business Analyst", "Product Manager"],
+
+  "level_codes": ["2", "3"],
+  "_level_codes_help": "LinkedIn experience codes: 1=Internship, 2=Entry, 3=Associate, 4=Mid-Senior, 5=Director, 6=Executive. Pick one or more.",
+
+  "countries": ["India", "United States"],
+  "queries": ["Bengaluru, India", "India", "United States"],
+  "_queries_help": "Location strings searched on LinkedIn. Use 'City, Country' for a city or just 'Country' for country-wide. If omitted, the countries list is used.",
+
+  "sources": ["linkedin", "careers", "aggregators", "indiaboards"],
+  "_sources_help": "Any of: linkedin, careers, workday, aggregators, indiaboards.",
+
+  "career_companies": ["Stripe", "Notion"],
+  "_career_companies_help": "Company names whose Greenhouse/Lever/Ashby/SmartRecruiters board (or JSON-LD job page) can be auto-detected. Names that can't be resolved are skipped honestly in headless mode (no prompting).",
+
+  "workday_urls": [],
+  "_workday_urls_help": "Each entry is [\"Company Name\", \"https://company.wdX.myworkdayjobs.com/en-US/BoardName\"]. Required because Workday is per-tenant and cannot be guessed from a name."
+}

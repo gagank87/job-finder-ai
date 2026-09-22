@@ -1,0 +1,26 @@
+{
+  "_help": "Copy this file to secrets/applicant_profile.json and fill in your REAL details. That path is gitignored. These fields are used ONLY to auto-submit applications to ATS endpoints that accept them without a captcha/login. If a form asks something not covered here, the tool will NOT guess — it falls back to preparing the application for you to submit.",
+
+  "first_name": "Jane",
+  "last_name": "Doe",
+  "email": "jane.doe@example.com",
+  "phone": "0000000000",
+  "location": "India",
+
+  "linkedin_url": "https://www.linkedin.com/in/your-handle/",
+  "github_url": "https://github.com/your-handle",
+  "portfolio_url": "",
+
+  "work_authorization": true,
+  "requires_visa_sponsorship": false,
+  "notice_period": "0",
+  "earliest_start_date":"Immediate",
+
+  "_screening_defaults_help": "Optional default answers to common yes/no screening questions. Keys are matched case-insensitively against the question text; only used when a required question clearly matches. Anything not covered aborts the auto-submit for that job (falls back to prepare).",
+  "screening_defaults": {
+    "are you legally authorized to work": "Yes",
+    "will you now or in the future require sponsorship": "No",
+    "are you willing to relocate": "Yes",
+    "do you have a bachelor's degree": "Yes"
+  }
+}

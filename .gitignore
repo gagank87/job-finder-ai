@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ---------------------------------------------------------------------------
+# CREDENTIALS & PERSONAL DATA — NEVER COMMIT
+# ---------------------------------------------------------------------------
+secrets/
+*.key
+*_key.txt
+*_token.txt
+.env
+cookies.json
+
+# Your real CV + cover-letter reference (supplied locally; see cv/README.txt)
+cv/*.docx
+cv/*.doc
+cv/*.pdf
+cv/cover_reference.txt
+
+# The real applicant profile. Only the *.sample.json template is committed.
+applicant_profile.json
+
+# Your own runtime config. Only settings.sample.json is committed.
+settings.json
+
+# Claude Code / editor local state
+.claude/
+.vscode/
+.idea/
+
+# ---------------------------------------------------------------------------
+# GENERATED OUTPUT — per-run workbooks, drafts, caches. All contain real
+# scraped postings and, under applications/, your tailored CV + cover notes.
+# ---------------------------------------------------------------------------
+output/
+master_tracker.xlsx
+*.xlsx
+*.docx
+*.pdf
+!cv/README.txt
