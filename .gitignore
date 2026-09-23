@@ -30,6 +30,13 @@ profile.json
 # Your own runtime config. Only settings.sample.json is committed.
 settings.json
 
+# Multi-user web storage (config.DATA_DIR). Everything under it is per-deployment
+# runtime state: data/app.db is the accounts DB — usernames and password hashes,
+# plus live login tokens — and data/users/<id>/ holds each user's profile,
+# tracker, output and BYO API keys. None of it belongs in version control.
+# The -wal/-shm siblings are SQLite's write-ahead log and shared-memory files.
+data/
+
 # Claude Code / editor local state
 .claude/
 .vscode/

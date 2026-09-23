@@ -6,8 +6,9 @@ actually eligible, and keeps one de-duplicated tracker across every run —
 with an optional Claude layer that tailors the CV per posting and, where a
 tenant genuinely allows it, submits the application.
 
-**~8,700 lines across 36 modules.** Four front-ends (CLI, Tkinter GUI, browser
-UI, unattended/scheduled) over one shared pipeline.
+**~9,200 lines across 38 modules.** Four front-ends (CLI, Tkinter GUI, browser
+UI, unattended/scheduled) over one shared pipeline — the browser one is
+multi-user, with accounts and per-user data isolation.
 
 > **Design principle that shaped every decision:** never fabricate. No guessed
 > URLs, no padded result rows, no invented CV content, no "Applied" status
@@ -160,9 +161,10 @@ python jobfinder.py --headless --config settings.json  # unattended
 ```
 
 The browser UI needs `fastapi` and `uvicorn`; nothing else does. It binds to
-localhost by default — `--host 0.0.0.0` exposes it on your network, which also
-exposes your tracker and drafts, so only do that behind something that
-authenticates.
+localhost by default; `--host 0.0.0.0` exposes it on your network or behind a
+tunnel. It does authenticate, and each account sees only its own data — but
+**registration is open**, so anyone who can reach the port can create an account.
+Put it behind a tunnel you control, not on a public address.
 
 Everything runs with **zero credentials**: the rule-based analyzer, five of the
 seven source families, Excel output, and the tracker all work out of the box.
@@ -176,6 +178,9 @@ Keys only unlock optional extras.
 | `ANTHROPIC_API_KEY` | Claude JD analyzer, CV tailoring, cover-note drafting |
 | `AWS_BEARER_TOKEN_BEDROCK` | same, routed via Amazon Bedrock instead |
 | `JSEARCH_API_KEY` | the Indeed / Glassdoor / Monster / Google Jobs source |
+
+In the browser UI, each user enters their own keys instead; they are stored in
+that user's gitignored folder and used only for their own requests.
 
 For auto-submission, copy
 [`applicant_profile.sample.json`](applicant_profile.sample.json) to
@@ -217,14 +222,42 @@ Adding the browser UI touched no pipeline module, which is the payoff for that
 seam: `webapp.py` gathers a form into the same settings dict the CLI builds and
 calls the same `run_search`.
 
-**The profile layer makes the tool multi-user.** `cvprofile.py` originally
-hardcoded one person's roles, skills and education. It still carries those as
-defaults, but [`profileio.py`](profileio.py) builds a `profile.json` from
-whoever's CV is supplied and rebinds the module globals at import time. Because
-every consumer reads `cvprofile.YEARS_EXPERIENCE` at call time rather than
-importing the value, the override reaches `match_score`, `jdfit` and
-`jdfit_claude` without changing any of them. `profile.json` is gitignored — it is
-CV-derived personal data.
+**Multi-user without rewriting a single-tenant pipeline.** Every module reads its
+paths and secrets from `config.*` attributes *at call time* — which is
+single-tenant by design. Rather than thread a user object through 38 modules,
+[`usercontext.py`](usercontext.py) redirects those attributes to the calling
+user's own folder for the duration of a request and restores them afterwards:
+
+```python
+with usercontext.active_user(user_id):   # config paths -> data/users/<id>/
+    results = core.run_search(settings)  # the pipeline never learns about users
+```
+
+The same late-binding trick makes the CV profile per-user.
+[`profileio.py`](profileio.py) builds a `profile.json` from whoever's CV is
+supplied and rebinds the `cvprofile` globals; because consumers read
+`cvprofile.YEARS_EXPERIENCE` at call time rather than importing the value, the
+override reaches `match_score`, `jdfit` and `jdfit_claude` without touching any
+of them.
+
+The honest limitation: the redirect mutates process-global state, so it is *not*
+thread-parallel across users. Searches are serialized under one lock — correct
+for a handful of people, and a real refactor before it is anything more.
+
+**Each user brings their own API keys.** A shared server env var would leak one
+person's key to everyone, so when a per-user override is active the key getters
+resolve **only** from that user's stored keys — never falling back to the process
+environment or on-disk files. A provider with no key is skipped honestly. Keys
+are returned to the browser as presence booleans only, never as values.
+
+**Passwords and personal data.** [`accounts.py`](accounts.py) stores only a
+PBKDF2-HMAC-SHA256 hash with a per-user random salt (240k iterations, stdlib
+only) and compares in constant time; login tokens are cryptographically random,
+and the cookie is `httponly` + `samesite=lax`. The uploaded CV is **never
+persisted** — the profile facts are extracted in memory and the file deleted
+immediately, so what remains on disk is roles/skills/years/education and no
+name, e-mail or phone. Every data endpoint requires login, takes no filesystem
+path, and ownership-checks the job it is asked about.
 
 **Every source returns one normalized dict**, so filters, writers, and the
 tracker never learn about source-specific shapes:
@@ -268,6 +301,8 @@ written by an older schema migrates cleanly rather than breaking.
 jobfinder.py     CLI + headless entry: menus, QC gate, --headless/--gui dispatch (thin shell)
 gui.py           Tkinter front-end: settings form -> threaded search -> sortable results table
 webapp.py        FastAPI front-end: same settings dict, same run_search; web/index.html is the UI
+accounts.py      SQLite users + login sessions; PBKDF2 hashes, random tokens (no personal data)
+usercontext.py   redirects config paths/secrets/profile to one user's folder for a request
 profileio.py     build/save/load profile.json from a CV; overrides the cvprofile.py defaults
 core.py          run_search(settings) — the settings-driven pipeline (no console I/O)
 interface.py     documented contract/seam shared by CLI, GUI, headless, agent
@@ -374,12 +409,16 @@ Stated plainly, because pretending otherwise would defeat the point.
   prepare-to-apply by design.
 - **Email/SMTP digest deliberately not built** — it would mean storing mail
   credentials. Headless mode writes a file digest plus a Windows notification.
+- **The multi-user web mode runs one search at a time.** The per-user redirect
+  and the narration sink are process-global, so requests serialize under a lock.
+  Fine for a handful of users; genuine concurrency needs the pipeline to take an
+  explicit context instead of reading module globals.
 
 ## Tech
 
 Python 3.13 · `requests` · `beautifulsoup4` · `openpyxl` · `selenium` ·
-`fastapi` · `uvicorn` · `anthropic` · `python-docx` · Tkinter ·
-Claude (Anthropic API / Amazon Bedrock)
+`fastapi` · `uvicorn` · `sqlite3` · `hashlib`/`hmac` (PBKDF2) · `anthropic` ·
+`python-docx` · Tkinter · Claude (Anthropic API / Amazon Bedrock)
 
 ## Author
 

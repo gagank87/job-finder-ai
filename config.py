@@ -230,6 +230,19 @@ SETTINGS_FILE = "settings.json"
 PROFILE_FILE = "profile.json"
 COOKIES_FILE = "cookies.json"            # optional; site -> cookie string
 
+# ---------------------------------------------------------------------------
+# Multi-user (web) storage. The single-user CLI/GUI ignore all of this.
+#
+# The web app (webapp.py) serves several people from one process. Accounts live
+# in a SQLite DB; each user's DATA (profile.json, settings.json, tracker, output,
+# CV, per-user API keys) lives in its OWN folder under DATA_DIR/users/<id>/.
+# usercontext.py redirects the path constants above at runtime — per request,
+# under the global search lock — so the entire single-tenant pipeline runs
+# unchanged against one user's folder. None of this touches the CLI defaults.
+# ---------------------------------------------------------------------------
+DATA_DIR = "data"                        # root for all multi-user data
+APP_DB = "data/app.db"                   # SQLite: users + sessions only
+
 # In-progress fetch cache. Results are written here right before the QC gate
 # so an accidental exit (or a mis-typed "no") never costs a full re-fetch.
 # It is auto-deleted the moment the run is resolved either way — on a rejected
@@ -367,6 +380,32 @@ APPLY_MAX_JOBS = 100
 APPLY_ELIGIBILITY_VERDICTS = {"Eligible", "Likely", "Unlikely", "Unknown"}
 
 
+# ---------------------------------------------------------------------------
+# Per-user secret override (multi-user web mode only).
+#
+# In the single-user CLI/GUI this stays None and every secret getter behaves
+# exactly as before (env var, then gitignored file). In the web app each user
+# brings their OWN keys, so a shared process env var must NOT leak one person's
+# key to everyone. usercontext.active_user() sets this to the current user's
+# key dict for the duration of their request; when it is a dict, the getters
+# resolve ONLY from it (a missing provider => None => that provider is skipped),
+# never from the process environment or on-disk files. Values are never logged.
+# ---------------------------------------------------------------------------
+SECRET_OVERRIDE = None  # None (CLI) | dict of {"anthropic","bedrock","groq","gemini","jsearch"}
+
+
+def _override_key(name):
+    """When a per-user override is active, return its cleaned value for `name`
+    (or None). Returns the sentinel _NO_OVERRIDE when no override is active so
+    callers fall through to their normal env/file resolution."""
+    if SECRET_OVERRIDE is None:
+        return _NO_OVERRIDE
+    return _clean_key(SECRET_OVERRIDE.get(name))
+
+
+_NO_OVERRIDE = object()
+
+
 def _clean_key(raw):
     """
     Normalize a key string a human may have pasted with extra characters.
@@ -399,6 +438,9 @@ def get_api_key():
     / stray whitespace still works. NEVER prints or logs the key. Callers treat
     None as "tailoring disabled".
     """
+    ov = _override_key("anthropic")
+    if ov is not _NO_OVERRIDE:
+        return ov
     key = _clean_key(os.environ.get("ANTHROPIC_API_KEY"))
     if key:
         return key
@@ -447,18 +489,27 @@ def get_jsearch_key():
     gitignored JSEARCH_API_KEY_FILE. Callers treat None as "unconfigured — skip
     honestly". NEVER prints or logs the key.
     """
+    ov = _override_key("jsearch")
+    if ov is not _NO_OVERRIDE:
+        return ov
     return _key_from("JSEARCH_API_KEY", JSEARCH_API_KEY_FILE)
 
 
 def get_groq_key():
     """Return the Groq API key (GROQ_API_KEY env var or GROQ_API_KEY_FILE), or
     None. Never printed or logged."""
+    ov = _override_key("groq")
+    if ov is not _NO_OVERRIDE:
+        return ov
     return _key_from("GROQ_API_KEY", GROQ_API_KEY_FILE)
 
 
 def get_gemini_key():
     """Return the Google Gemini key (GEMINI_API_KEY or GOOGLE_API_KEY env var,
     or GEMINI_API_KEY_FILE), or None. Never printed or logged."""
+    ov = _override_key("gemini")
+    if ov is not _NO_OVERRIDE:
+        return ov
     return _key_from(["GEMINI_API_KEY", "GOOGLE_API_KEY"], GEMINI_API_KEY_FILE)
 
 
@@ -483,6 +534,9 @@ def get_bedrock_token():
     the Anthropic key, so a value saved from Notepad/PowerShell still works.
     NEVER prints or logs the token.
     """
+    if SECRET_OVERRIDE is not None:
+        tok = (SECRET_OVERRIDE.get("bedrock") or "").strip()
+        return tok or None
     tok = (os.environ.get("AWS_BEARER_TOKEN_BEDROCK") or "").strip()
     if tok:
         return tok

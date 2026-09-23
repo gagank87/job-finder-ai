@@ -3,6 +3,38 @@
 Version history and the reasoning behind each step. Earlier entries are kept
 verbatim in spirit — including what was deliberately *not* built, and why.
 
+## v7 — accounts and per-user isolation on the web front-end
+
+The browser UI from v6.5 served exactly one person's data, like the CLI. v7 makes
+it serve several without rewriting a single-tenant pipeline.
+
+- **Accounts** (`accounts.py`) — SQLite users + login sessions, holding nothing
+  but a username, a PBKDF2-HMAC-SHA256 hash with a per-user random salt (240k
+  iterations, standard library only — no third-party crypto dependency), and an
+  opaque random session token with a 30-day expiry. Constant-time comparison;
+  passwords never stored in the clear and never logged. The iteration count is
+  stored *per hash* so it can be raised later without invalidating old logins.
+- **Per-user data isolation** (`usercontext.py`) — rather than thread a user
+  object through 38 modules, `active_user(id)` redirects the `config.*` path
+  constants to `data/users/<id>/` for the body of a request and restores them
+  afterwards. The pipeline never learns that users exist. This is the same
+  late-binding trick `profileio.py` already used for CV facts, applied to paths.
+- **Bring-your-own API keys** — `config.SECRET_OVERRIDE`, set per request. When
+  it is a dict the key getters resolve **only** from it and never fall back to
+  the process environment or on-disk files, because a shared server env var
+  would otherwise spend one person's key on everyone else's searches. A provider
+  with no key is skipped honestly, as an unconfigured source always was.
+- **CV upload that keeps nothing** — the `.docx` is size-capped (12 MB) and
+  format-checked (`PK` zip magic), written to the user's folder only long enough
+  for `profileio` to extract the profile, then deleted in a `finally`. What
+  survives is roles/skills/years/education — never a name, e-mail or phone.
+- **Not built, deliberately.** No password reset (it would mean storing mail
+  credentials — the same reason the SMTP digest was skipped in v6), no roles or
+  admin surface, and no cross-user parallelism: the redirect mutates
+  process-global state, so searches serialize under one lock. Registration is
+  left open, which is why the README says to run it behind a tunnel you control
+  rather than on a public address.
+
 ## v6 — AI layer + application pipeline
 
 The seam left open in v4 was filled in.

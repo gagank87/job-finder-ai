@@ -31,12 +31,13 @@ from environment variables; none is ever stored in the repo or printed.
 
 ## 2. What the tool does
 
-A Python tool with **three front-ends over one pipeline** (`core.run_search`), on Windows, Python 3.13:
+A Python tool with **four front-ends over one pipeline** (`core.run_search`), on Windows, Python 3.13:
 - **Interactive CLI** — `python jobfinder.py` (menu-driven).
 - **GUI** — `python gui.py` or `python jobfinder.py --gui` (Tkinter).
+- **Browser** — `python webapp.py` (FastAPI, multi-user; see §4a).
 - **Headless/scheduled** — `python jobfinder.py --headless --config settings.json` (no prompts, no QC gate).
 
-All three fetch **real** job postings from multiple sources, filter them, check eligibility against the CV, and write them to Excel.
+All four fetch **real** job postings from multiple sources, filter them, check eligibility against the CV, and write them to Excel.
 
 CLI run flow: greet → (optional cookie load) → **offer to resume a cached interrupted fetch** → pick roles → **multi-select experience levels** → **multi-select countries** + cities per country → multi-select sources → (career/Workday company inputs gathered up front) → `core.run_search(settings)` does: fetch each source (live narration) → validate every link (HTTP 200) → salary filter → seniority filter (junior-only searches) → **JD eligibility analysis** → tag Role type → return results → **cache results to disk** → QC gate (**strict y/n**, top 5 by fit) → on approval, write per-run Excel workbook AND merge new jobs into the growing master tracker → **clear cache** (also cleared on reject).
 
@@ -53,6 +54,10 @@ CLI run flow: greet → (optional cookie load) → **offer to resume a cached in
 ```
 jobfinder.py          # CLI + headless entry: menus, QC gate, resume, --headless/--gui/--config dispatch (THIN shell)
 gui.py                # Tkinter front-end: settings form -> threaded core.run_search -> results table QC gate -> approve/discard
+webapp.py             # FastAPI front-end: same settings dict, same run_search; auth-gated, one search at a time
+accounts.py           # SQLite users + login sessions; PBKDF2-HMAC-SHA256 + per-user salt; no personal data
+usercontext.py        # active_user(id) context manager: redirects config paths/secrets/profile to data/users/<id>/
+profileio.py          # build/save/load profile.json from a CV; rebinds the cvprofile globals (per-user CV facts)
 core.py               # run_search(settings, ask_url_fn) — the settings-driven pipeline (no console I/O)
 runcache.py           # save/load/clear the pre-QC fetch cache (resume + auto-delete); pure, never raises
 notify.py             # Windows toast via PowerShell NotifyIcon (headless digest); no pip dependency; never raises
@@ -80,6 +85,8 @@ settings.sample.json  # headless config template (copy to settings.json); self-d
 requirements.txt      # requests, beautifulsoup4, openpyxl + optional: selenium, anthropic, python-docx, docx2pdf
 output/               # per-run xlsx files land here; output/.cache/last_run.json is the resume cache (gitignored)
 secrets/              # gitignored: credentials + the real applicant_profile.json
+data/                 # gitignored: app.db (accounts) + users/<id>/ (per-user profile, settings, tracker, keys, output)
+web/index.html        # the browser UI, served by webapp.py; no build step, no framework
 sources/
   linkedin.py         # LinkedIn public guest API; fetch(search_terms, cities, exp_codes); + cookie-gated hiring-team link enrichment
   careers.py          # ATS auto-detect (Greenhouse, Lever, Ashby, SmartRecruiters) + pasted-URL fallback + own-domain sniff + JSON-LD JobPosting fallback
@@ -125,6 +132,43 @@ validation. See `core.run_search` step 7.
 }
 ```
 `core.run_search` reads `countries` (falling back to `[country]`) and runs the remote aggregators **once per country**, de-duped. LinkedIn loops the `queries`. For headless JSON, `runcache.restore_settings` normalizes `sources` (list→set) and `workday_urls` (lists→tuples); underscore-prefixed keys in settings.sample.json are ignored.
+
+## 4a. Multi-user web mode (`webapp.py` only — the CLI/GUI ignore all of it)
+
+The pipeline reads its paths and secrets from `config.*` **at call time**, which
+is single-tenant by design. Instead of threading a user object through 38
+modules, `usercontext.active_user(id)` redirects those attributes to the caller's
+own folder for the body of a request and restores them in a `finally`:
+
+```
+config.MASTER_TRACKER  "master_tracker.xlsx"  ->  "data/users/7/master_tracker.xlsx"
+config.PROFILE_FILE    "profile.json"         ->  "data/users/7/profile.json"
+config.SECRET_OVERRIDE None                   ->  {"anthropic": "...", ...}
+cvprofile globals      process defaults       ->  that user's CV facts
+```
+
+Every redirected constant is **relative** in `config.py`, and `_ORIGINALS` is
+captured once at import, so a redirect is always computed from the canonical
+relative value and never from an already-redirected one. Keep them relative: an
+absolute path would make `os.path.join` discard the user folder and silently
+collapse all users onto one file.
+
+**Secrets never cross accounts.** When `config.SECRET_OVERRIDE` is a dict, the
+key getters resolve *only* from it — a provider missing there yields `None` and
+is skipped honestly, rather than falling through to the process environment and
+spending the host's key on someone else's search.
+
+**Concurrency.** The redirect mutates process-global state and the narration sink
+is process-global, so `search` / `write` / `meta` are serialized under
+`_run_lock`. This is a real limit, not an oversight: genuine parallelism requires
+`run_search` to take an explicit context instead of reading module globals.
+
+**Privacy invariants.** No endpoint accepts a filesystem path; there is no static
+mount of the repo or `data/`; jobs are ownership-checked before status or write
+(`_owned_job` 404s on someone else's id); the uploaded CV is written only to the
+user's folder, parsed, and deleted in a `finally`; `profile.json` keeps
+roles/skills/years/education and no name, e-mail or phone; API keys go back to
+the browser as presence booleans only. `data/` is gitignored in full.
 
 ## 5. Sources — what works and what is blocked (all live-tested)
 

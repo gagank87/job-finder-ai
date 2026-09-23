@@ -5,65 +5,138 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Job Finder</title>
 <style>
+  /* Palette built around indigo #6A7FDB, lavender #AFABD9, gray #8A8D91 and
+     amber #F49F0A. Indigo leads (actions/links); lavender tints the surfaces;
+     gray is muted text; amber is the single warm accent for the main CTA and
+     highlights. Ink, green and red are tuned to sit in the same cool family. */
   :root {
-    --bg: #0f1216; --panel: #171b21; --panel2: #1e242c; --line: #2a323c;
-    --ink: #e8edf2; --muted: #9aa7b4; --accent: #4f9dff; --ok: #46c17d;
-    --warn: #e5b451; --bad: #ef6a6a;
+    --bg: #f4f4fa; --panel: #ffffff; --panel2: #f1f0f9; --line: #e4e2f1;
+    --ink: #2c2e43; --muted: #8a8d91; --accent: #6a7fdb; --accent-hover: #566bc9;
+    --on-accent: #ffffff;
+    --lav: #afabd9; --lav-soft: #ecebf6;
+    --amber: #f49f0a; --amber-hover: #d98905; --on-amber: #3d2a00;
+    --ok: #2f9e7f; --warn: #c9820b; --bad: #d75d6a;
+    --shadow: 0 1px 2px rgba(44,46,67,.06), 0 1px 3px rgba(44,46,67,.05);
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.5 system-ui, "Segoe UI", Roboto, sans-serif; }
   header { padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  header h1 { font-size: 18px; margin: 0; }
-  .pill { font-size: 12px; color: var(--muted); background: var(--panel2);
-    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
-  .pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); }
-  main { display: grid; grid-template-columns: 360px 1fr; gap: 0; height: calc(100vh - 55px); }
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; box-shadow: var(--shadow); }
+  header h1 { font-size: 18px; margin: 0; color: var(--accent); font-weight: 700; }
+  .pill { font-size: 12px; color: #5b5f88; background: var(--lav-soft);
+    border: 1px solid #dcd9ee; border-radius: 999px; padding: 3px 10px; }
+  .pill.ok { color: var(--ok); border-color: #bfe6d8; background: #eef8f4; }
+  .pill.bad { color: var(--bad); border-color: #f2d1d6; background: #fdf3f4; }
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 0; height: calc(100vh - 56px); }
   .side { padding: 18px 20px; overflow-y: auto; border-right: 1px solid var(--line);
     background: var(--panel); }
   .content { padding: 18px 22px; overflow-y: auto; }
   label { display: block; font-weight: 600; margin: 14px 0 5px; }
   .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
-  input[type=text], textarea { width: 100%; background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  input[type=text], input[type=password], textarea { width: 100%; background: var(--panel);
+    color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  input[type=text]:focus, input[type=password]:focus, textarea:focus { outline: none;
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(106,127,219,.18); }
   textarea { resize: vertical; min-height: 52px; }
   .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
   .checks label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; margin: 4px 0; }
   .row { display: flex; gap: 10px; margin-top: 18px; }
   button { font: inherit; font-weight: 600; border: 1px solid var(--line);
-    border-radius: 8px; padding: 9px 14px; background: var(--panel2); color: var(--ink);
-    cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #07101c; }
-  button.go { background: var(--ok); border-color: var(--ok); color: #04140c; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
+    border-radius: 8px; padding: 9px 14px; background: var(--panel); color: var(--ink);
+    cursor: pointer; transition: background .12s, border-color .12s; }
+  button:hover { background: var(--panel2); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  /* Approve = indigo (the calm confirm action). */
+  button.go { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.go:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  /* Search = amber (the warm primary call-to-action); overrides its .primary. */
+  #searchBtn { background: var(--amber); border-color: var(--amber); color: var(--on-amber); }
+  #searchBtn:hover { background: var(--amber-hover); border-color: var(--amber-hover); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px 14px; margin-bottom: 14px; }
+    padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  details.keys { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 8px; }
+  details.keys summary { cursor: pointer; font-weight: 600; }
+  details.keys .krow { display: grid; grid-template-columns: 84px 1fr; align-items: center;
+    gap: 8px; margin: 8px 0; }
+  details.keys .krow label { margin: 0; font-weight: 400; }
+  .kstate { font-size: 12px; }
+  .kset { color: var(--ok); } .kunset { color: var(--muted); }
   #status { color: var(--muted); }
-  #log { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted);
-    background: #0b0e12; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+  #log { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #475569;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px;
     height: 150px; overflow-y: auto; white-space: pre-wrap; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { position: sticky; top: 0; background: var(--panel2); color: var(--muted); font-size: 12px; }
-  tr:hover td { background: #12161b; }
-  .v-Eligible { color: var(--ok); } .v-Likely { color: #9fd9b6; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--panel2); color: var(--muted); font-size: 12px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  tbody tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--lav-soft); }
+  .v-Eligible { color: var(--ok); font-weight: 600; } .v-Likely { color: #3aa98a; }
   .v-Unlikely { color: var(--warn); } .v-Unknown { color: var(--muted); }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   a { color: var(--accent); }
   .muted { color: var(--muted); }
+  /* Auth overlay */
+  #auth { position: fixed; inset: 0; background: var(--bg); display: none;
+    align-items: center; justify-content: center; z-index: 50; }
+  #auth .box { width: 340px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 26px 24px; box-shadow: 0 10px 30px rgba(16,24,40,.10); }
+  #auth h1 { margin: 0 0 4px; font-size: 22px; color: var(--accent); }
+  #auth p.sub { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+  #auth label { margin: 12px 0 4px; }
+  #authErr { color: var(--bad); font-size: 13px; min-height: 18px; margin-top: 8px; }
+  #app { display: none; }
 </style>
 </head>
 <body>
+
+<!-- Login / register -->
+<div id="auth">
+  <div class="box">
+    <h1>Job Finder</h1>
+    <p class="sub">Log in, or create an account. Everyone's data stays private to their own login.</p>
+    <label for="auUser">Username</label>
+    <input type="text" id="auUser" autocomplete="username" />
+    <label for="auPass">Password <span class="hint">(min 8 characters)</span></label>
+    <input type="password" id="auPass" autocomplete="current-password" />
+    <div id="authErr"></div>
+    <div class="row">
+      <button class="primary" id="loginBtn">Log in</button>
+      <button id="registerBtn">Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="app">
 <header>
   <h1>Job Finder</h1>
   <span id="llm" class="pill">LLM: …</span>
   <span id="prof" class="pill">Profile: …</span>
-  <button id="buildBtn" style="margin-left:auto">Rebuild profile from CV</button>
+  <span id="who" class="pill" style="margin-left:auto">…</span>
+  <button id="logoutBtn">Log out</button>
 </header>
 
 <main>
   <section class="side">
+    <details class="keys" id="keysBox">
+      <summary>Your API keys <span class="hint">(BYO — stored privately, never shown again)</span></summary>
+      <div class="krow"><label for="k_groq">Groq</label><input type="password" id="k_groq" placeholder="gsk_…" autocomplete="off" /></div>
+      <div class="krow"><label for="k_gemini">Gemini</label><input type="password" id="k_gemini" placeholder="AIza…" autocomplete="off" /></div>
+      <div class="krow"><label for="k_jsearch">JSearch</label><input type="password" id="k_jsearch" placeholder="RapidAPI key" autocomplete="off" /></div>
+      <div class="krow"><label for="k_anthropic">Anthropic</label><input type="password" id="k_anthropic" placeholder="sk-ant-… (optional)" autocomplete="off" /></div>
+      <div id="keyStatus" class="kstate muted" style="margin:6px 0"></div>
+      <button id="saveKeysBtn">Save keys</button>
+    </details>
+
+    <label>CV <span class="hint">(.docx — used once to read your roles/skills, then deleted)</span></label>
+    <input type="file" id="cvFile" accept=".docx" />
+
     <label>Target roles <span class="hint">(comma-separated)</span></label>
     <input type="text" id="roles" placeholder="Data Analyst, Business Analyst" />
 
@@ -99,6 +172,7 @@
     <div id="log"></div>
     <div class="row" style="margin:14px 0">
       <button class="go" id="approveBtn" disabled>Approve &amp; save to tracker</button>
+      <a id="dlTracker" href="/api/tracker.xlsx">Download tracker (.xlsx)</a>
     </div>
     <div style="overflow-x:auto">
       <table id="results"><thead><tr>
@@ -109,15 +183,30 @@
     </div>
   </section>
 </main>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 let currentJob = null, poll = null;
 
+// fetch wrapper: JSON in/out, and on 401 bounce to the login overlay.
+async function api(path, opts = {}) {
+  const o = Object.assign({headers: {}}, opts);
+  if (o.body && typeof o.body === "object" && !(o.body instanceof Blob)) {
+    o.headers["Content-Type"] = "application/json";
+    o.body = JSON.stringify(o.body);
+  }
+  const r = await fetch(path, o);
+  if (r.status === 401) { showAuth(); throw new Error("Not logged in"); }
+  return r;
+}
+
+function showAuth() { $("app").style.display = "none"; $("auth").style.display = "flex"; }
+function showApp()  { $("auth").style.display = "none"; $("app").style.display = "block"; }
+
 function chk(container, items, value, checked) {
   container.innerHTML = "";
   for (const it of items) {
-    const id = container.id + "_" + it[value];
     const wrap = document.createElement("label");
     wrap.innerHTML = `<input type="checkbox" value="${it[value]}" ${checked.includes(it[value]) ? "checked" : ""}/> ${it.label}`;
     container.appendChild(wrap);
@@ -128,8 +217,29 @@ function picked(container) {
 }
 function esc(s) { return (s ?? "").toString().replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
+// ---- Auth ----
+async function doAuth(mode) {
+  const username = $("auUser").value.trim(), password = $("auPass").value;
+  $("authErr").textContent = "";
+  try {
+    const r = await fetch("/api/" + mode, {method:"POST",
+      headers:{"Content-Type":"application/json"}, body: JSON.stringify({username, password})});
+    if (!r.ok) { $("authErr").textContent = (await r.json()).detail || "Failed."; return; }
+    $("auPass").value = "";
+    showApp();
+    await loadMeta().then(resumeJob);
+  } catch (e) { $("authErr").textContent = "Network error."; }
+}
+async function logout() {
+  try { await fetch("/api/logout", {method:"POST"}); } catch (e) {}
+  try { localStorage.removeItem("jobId"); } catch (e) {}
+  currentJob = null; if (poll) clearInterval(poll);
+  showAuth();
+}
+
+// ---- Meta / profile / keys ----
 async function loadMeta() {
-  const m = await (await fetch("/api/meta")).json();
+  const m = await (await api("/api/meta")).json();
   const s = m.saved_settings || {};
   chk($("levels"), m.levels.map(l => ({code:l.code, label:l.label})), "code", s.levels || ["2"]);
   chk($("countries"), m.countries.map(c => ({country:c, label:c})), "country", s.countries || [m.countries[0]]);
@@ -137,11 +247,48 @@ async function loadMeta() {
   $("roles").value = s.roles || (m.profile.roles || []).join(", ");
   $("career").value = s.career || "";
   $("workday").value = s.workday || "";
+  $("who").textContent = "@" + m.user.username;
   const llm = $("llm");
   llm.textContent = "LLM: " + m.llm.chain;
   llm.className = "pill " + (m.llm.ok ? "ok" : "bad");
   const p = m.profile;
   $("prof").textContent = `Profile: ${p.years_experience}y exp · ${(p.roles||[]).length} roles · ${(p.skills||[]).length} skills`;
+  renderKeyStatus(m.keys);
+  if (!m.llm.ok) $("keysBox").open = true;   // nudge them to add a key
+}
+
+function renderKeyStatus(keys) {
+  const parts = [];
+  for (const [prov, on] of Object.entries(keys || {}))
+    parts.push(`<span class="${on ? 'kset' : 'kunset'}">${prov}${on ? ' ✓' : ' –'}</span>`);
+  $("keyStatus").innerHTML = "Configured: " + (parts.join("  ") || "none");
+}
+
+async function saveKeys() {
+  const body = {};
+  for (const p of ["groq","gemini","jsearch","anthropic"]) {
+    const v = $("k_" + p).value.trim();
+    if (v) body[p] = v;               // only send fields the user typed
+  }
+  if (!Object.keys(body).length) { return; }
+  $("saveKeysBtn").disabled = true;
+  try {
+    const d = await (await api("/api/keys", {method:"POST", body})).json();
+    for (const p of ["groq","gemini","jsearch","anthropic"]) $("k_" + p).value = "";  // don't linger in DOM
+    renderKeyStatus(d.keys);
+    await loadMeta();                 // refresh the LLM pill
+  } finally { $("saveKeysBtn").disabled = false; }
+}
+
+async function uploadCv(file) {
+  $("status").textContent = "Reading your CV…";
+  try {
+    const r = await api("/api/upload-cv", {method:"POST", body: file});  // raw .docx bytes
+    const d = await r.json();
+    $("status").textContent = d.ok ? (d.note || "Profile built from your CV.") : ("CV: " + d.error);
+    if (d.ok) await loadMeta();
+  } catch (e) { $("status").textContent = "CV upload failed."; }
+  finally { $("cvFile").value = ""; }
 }
 
 function form() {
@@ -153,46 +300,29 @@ function form() {
   };
 }
 
-async function buildProfile() {
-  $("buildBtn").disabled = true; $("status").textContent = "Building profile from your CV…";
-  try {
-    const r = await fetch("/api/build-profile", {method:"POST"});
-    const d = await r.json();
-    $("status").textContent = d.ok ? d.note : ("Profile: " + d.error);
-    if (d.ok) await loadMeta();
-  } finally { $("buildBtn").disabled = false; }
-}
-
 async function saveSettings() {
-  const r = await fetch("/api/save-settings", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify(form())});
+  const r = await api("/api/save-settings", {method:"POST", body: form()});
   if (!r.ok) { $("status").textContent = "Save failed: " + (await r.json()).detail; return; }
-  const d = await r.json();
-  $("status").textContent = `Settings saved to ${d.path}. Scheduled run: ${d.headless_cmd}`;
+  $("status").textContent = "Settings saved. Your scheduled/headless run will reuse them.";
 }
 
+// ---- Search ----
 async function search() {
   $("searchBtn").disabled = true; $("approveBtn").disabled = true;
   $("results").querySelector("tbody").innerHTML = "";
   $("summary").textContent = ""; $("log").textContent = "";
   $("status").textContent = "Searching… this can take a few minutes.";
-  const r = await fetch("/api/search", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify(form())});
+  const r = await api("/api/search", {method:"POST", body: form()});
   currentJob = (await r.json()).job_id;
   try { localStorage.setItem("jobId", currentJob); } catch (e) {}
   if (poll) clearInterval(poll);
   poll = setInterval(pollJob, 1500); pollJob();
 }
 
-// Reconnect to an in-flight or finished search after a page reload: the search
-// runs on the server, so we only lost the client-side handle. Re-fetch its
-// status and either resume polling (running) or render the result (done/error).
 async function resumeJob() {
-  let id;
-  try { id = localStorage.getItem("jobId"); } catch (e) { return; }
+  let id; try { id = localStorage.getItem("jobId"); } catch (e) { return; }
   if (!id) return;
-  let r;
-  try { r = await fetch("/api/search/" + id); } catch (e) { return; }
+  let r; try { r = await fetch("/api/search/" + id); } catch (e) { return; }
   if (!r.ok) { try { localStorage.removeItem("jobId"); } catch (e) {} return; }
   const d = await r.json();
   if (!d.status) { try { localStorage.removeItem("jobId"); } catch (e) {} return; }
@@ -201,14 +331,14 @@ async function resumeJob() {
     $("status").textContent = "Reconnected to a search already running…";
     if (poll) clearInterval(poll);
     poll = setInterval(pollJob, 1500); pollJob();
-  } else {
-    pollJob();  // render the finished (done/error) result
-  }
+  } else { pollJob(); }
 }
 
 async function pollJob() {
   if (!currentJob) return;
-  const d = await (await fetch("/api/search/" + currentJob)).json();
+  let r; try { r = await fetch("/api/search/" + currentJob); } catch (e) { return; }
+  if (r.status === 401) { showAuth(); return; }
+  const d = await r.json();
   $("log").textContent = (d.log || []).join("\n");
   $("log").scrollTop = $("log").scrollHeight;
   if (d.status === "running") return;
@@ -245,18 +375,32 @@ function render(jobs) {
 
 async function approve() {
   $("approveBtn").disabled = true; $("status").textContent = "Writing to tracker…";
-  const r = await fetch("/api/write/" + currentJob, {method:"POST"});
+  const r = await api("/api/write/" + currentJob, {method:"POST"});
   if (!r.ok) { $("status").textContent = "Write failed: " + (await r.json()).detail;
                $("approveBtn").disabled = false; return; }
   const d = await r.json();
-  $("status").textContent = `Saved. +${d.added} new in ${d.master_file} (${d.master_total} total). Workbook: ${d.path}`;
+  $("status").textContent = `Saved. +${d.added} new (${d.master_total} total in your tracker).`;
 }
 
-$("buildBtn").onclick = buildProfile;
+// ---- Wire up ----
+$("loginBtn").onclick = () => doAuth("login");
+$("registerBtn").onclick = () => doAuth("register");
+$("auPass").addEventListener("keydown", e => { if (e.key === "Enter") doAuth("login"); });
+$("logoutBtn").onclick = logout;
+$("saveKeysBtn").onclick = saveKeys;
+$("cvFile").onchange = e => { if (e.target.files[0]) uploadCv(e.target.files[0]); };
 $("saveBtn").onclick = saveSettings;
 $("searchBtn").onclick = search;
 $("approveBtn").onclick = approve;
-loadMeta().catch(e => $("status").textContent = "Failed to load: " + e).then(resumeJob);
+
+// Boot: are we already logged in?
+(async () => {
+  try {
+    const r = await fetch("/api/me");
+    if (r.ok) { showApp(); await loadMeta().then(resumeJob); }
+    else showAuth();
+  } catch (e) { showAuth(); }
+})();
 </script>
 </body>
 </html>
