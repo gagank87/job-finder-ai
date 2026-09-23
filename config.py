@@ -222,6 +222,12 @@ MASTER_TRACKER = "master_tracker.xlsx"   # single growing, de-duplicated file
 # `python jobfinder.py --headless`. Holds the roles/levels/locations/sources
 # YOU selected, so the scheduled run never falls back to a hardcoded default.
 SETTINGS_FILE = "settings.json"
+
+# Per-user CV profile (target roles, skills, years of experience, education),
+# built from the user's own CV by profileio.build_and_save() and read at import
+# by cvprofile. Holds ONLY CV-derived facts — never a credential — but it is
+# personal, so it's gitignored. When absent, cvprofile's built-in defaults apply.
+PROFILE_FILE = "profile.json"
 COOKIES_FILE = "cookies.json"            # optional; site -> cookie string
 
 # In-progress fetch cache. Results are written here right before the QC gate
@@ -296,7 +302,13 @@ LLM_PROVIDER_ORDER = ["anthropic", "groq", "gemini"]
 # Groq (free, OpenAI-compatible). Key: GROQ_API_KEY env var or the file below.
 GROQ_API_KEY_FILE = "secrets/groq_key.txt"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# Groq retires model IDs periodically and access varies by account/tier. This
+# key's account serves the OpenAI open-weights models (not Llama), and
+# gpt-oss-120b is the strongest text model it can reach. To see what YOUR key
+# can use: GET {GROQ_BASE_URL}/models with the bearer key. (gpt-oss-20b is a
+# reasoning model that can spend a small token budget entirely on thinking and
+# return empty — the chain handles that, but 120b is the reliable default.)
+GROQ_MODEL = "openai/gpt-oss-120b"
 
 # Google Gemini via its OpenAI-compatible endpoint. Key: GEMINI_API_KEY (or
 # GOOGLE_API_KEY) env var, or the file below.

@@ -6,8 +6,8 @@ actually eligible, and keeps one de-duplicated tracker across every run —
 with an optional Claude layer that tailors the CV per posting and, where a
 tenant genuinely allows it, submits the application.
 
-**~8,000 lines across 34 modules.** Three front-ends (CLI, Tkinter GUI,
-unattended/scheduled) over one shared pipeline.
+**~8,700 lines across 36 modules.** Four front-ends (CLI, Tkinter GUI, browser
+UI, unattended/scheduled) over one shared pipeline.
 
 > **Design principle that shaped every decision:** never fabricate. No guessed
 > URLs, no padded result rows, no invented CV content, no "Applied" status
@@ -155,8 +155,14 @@ pip install -r requirements.txt
 ```bash
 python jobfinder.py                                    # interactive CLI
 python jobfinder.py --gui                              # Tkinter GUI
+python webapp.py                                       # browser UI on 127.0.0.1:8000
 python jobfinder.py --headless --config settings.json  # unattended
 ```
+
+The browser UI needs `fastapi` and `uvicorn`; nothing else does. It binds to
+localhost by default — `--host 0.0.0.0` exposes it on your network, which also
+exposes your tracker and drafts, so only do that behind something that
+authenticates.
 
 Everything runs with **zero credentials**: the rule-based analyzer, five of the
 seven source families, Excel output, and the tracker all work out of the box.
@@ -200,12 +206,25 @@ honestly, never prompted for and never faked.
 
 ## Engineering notes
 
-**One pipeline, three front-ends.** The CLI, GUI, and headless mode only gather
-settings and handle their own review/write step. All actual work lives in
-`core.run_search(settings)`, which does no console I/O — narration flows through
-an injectable output sink in `utils`, which the GUI captures to stream progress
-into its log panel while the search runs on a worker thread.
+**One pipeline, four front-ends.** The CLI, Tkinter GUI, browser UI and headless
+mode only gather settings and handle their own review/write step. All actual work
+lives in `core.run_search(settings)`, which does no console I/O — narration flows
+through an injectable output sink in `utils`, which the GUI captures to stream
+progress into its log panel while the search runs on a worker thread.
 [`interface.py`](interface.py) documents the settings/results contract.
+
+Adding the browser UI touched no pipeline module, which is the payoff for that
+seam: `webapp.py` gathers a form into the same settings dict the CLI builds and
+calls the same `run_search`.
+
+**The profile layer makes the tool multi-user.** `cvprofile.py` originally
+hardcoded one person's roles, skills and education. It still carries those as
+defaults, but [`profileio.py`](profileio.py) builds a `profile.json` from
+whoever's CV is supplied and rebinds the module globals at import time. Because
+every consumer reads `cvprofile.YEARS_EXPERIENCE` at call time rather than
+importing the value, the override reaches `match_score`, `jdfit` and
+`jdfit_claude` without changing any of them. `profile.json` is gitignored — it is
+CV-derived personal data.
 
 **Every source returns one normalized dict**, so filters, writers, and the
 tracker never learn about source-specific shapes:
@@ -248,6 +267,8 @@ written by an older schema migrates cleanly rather than breaking.
 ```
 jobfinder.py     CLI + headless entry: menus, QC gate, --headless/--gui dispatch (thin shell)
 gui.py           Tkinter front-end: settings form -> threaded search -> sortable results table
+webapp.py        FastAPI front-end: same settings dict, same run_search; web/index.html is the UI
+profileio.py     build/save/load profile.json from a CV; overrides the cvprofile.py defaults
 core.py          run_search(settings) — the settings-driven pipeline (no console I/O)
 interface.py     documented contract/seam shared by CLI, GUI, headless, agent
 config.py        sources, salary floor, FX rates, feature switches, cache paths   <- tweak here
@@ -357,7 +378,8 @@ Stated plainly, because pretending otherwise would defeat the point.
 ## Tech
 
 Python 3.13 · `requests` · `beautifulsoup4` · `openpyxl` · `selenium` ·
-`anthropic` · `python-docx` · Tkinter · Claude (Anthropic API / Amazon Bedrock)
+`fastapi` · `uvicorn` · `anthropic` · `python-docx` · Tkinter ·
+Claude (Anthropic API / Amazon Bedrock)
 
 ## Author
 

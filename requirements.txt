@@ -8,6 +8,11 @@ openpyxl>=3.1
 # Selenium Manager downloads the matching chromedriver on first use.
 selenium>=4.20
 
+# Browser front-end (webapp.py). Optional: the CLI, Tkinter GUI and headless
+# mode need none of it.
+fastapi>=0.110
+uvicorn>=0.29
+
 # CV tailoring + apply pipeline (apply.py, the GUI "Prepare / apply" button,
 # and the config-gated Claude JD analyzer). All optional.
 anthropic>=0.40        # Claude client — reads ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK

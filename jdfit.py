@@ -1,8 +1,8 @@
 """
 JD eligibility analyzer — rule-based, offline (no API key, no network).
 
-Given a job's full description text and its title, decide whether the candidate
-is actually *eligible*, judging three real signals against their CV facts
+Given a job's full description text and its title, decide whether Gagan is
+actually *eligible*, judging three real signals against his CV facts
 (cvprofile.py):
 
   * Experience   — years required vs YEARS_EXPERIENCE (fresher signals help).

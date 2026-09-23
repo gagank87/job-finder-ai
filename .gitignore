@@ -23,6 +23,10 @@ cv/cover_reference.txt
 # The real applicant profile. Only the *.sample.json template is committed.
 applicant_profile.json
 
+# Built from the user's own CV by profileio.py and used to override the defaults
+# in cvprofile.py. Holds CV-derived facts — roles, skills, years, education.
+profile.json
+
 # Your own runtime config. Only settings.sample.json is committed.
 settings.json
 

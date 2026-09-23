@@ -432,6 +432,36 @@ def run_headless(config_path):
     return 0
 
 
+def run_build_profile(cv_path=None):
+    """
+    Build the per-user search profile from the master CV and save it to
+    profile.json, so searches + eligibility judge against THIS user's real CV
+    (roles / skills / years / education) instead of the built-in defaults.
+    Uses whatever free LLM provider is configured; degrades to the defaults with
+    a clear message if none is set. Returns a process exit code.
+    """
+    import profileio
+    utils.step("Reading your master CV and building your search profile...")
+    res = profileio.build_and_save(cv_path)
+    if not res["ok"]:
+        utils.warn(res["error"])
+        return 1
+    utils.ok(res["note"])
+    p = res["profile"]
+    utils.info(f"Roles: {', '.join(p['roles'])}")
+    utils.info(f"Years of full-time experience: {p['years_experience']} "
+               f"(internship: {p['has_internship']})")
+    utils.info(f"Education: Bachelor's={p['has_bachelors']}, "
+               f"Master's-equivalent={p['has_masters_equiv']}, "
+               f"PhD={p['has_phd']}")
+    utils.info(f"Skills read: {', '.join(p['skills'][:12])}"
+               f"{' ...' if len(p['skills']) > 12 else ''}")
+    utils.ok(f"Saved to '{res['path']}'. Searches and eligibility now use THIS "
+             f"profile. Edit that file directly anytime, or re-run "
+             f"--build-profile after updating your CV.")
+    return 0
+
+
 def _parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Job Finder — real, validated job postings.")
@@ -441,12 +471,18 @@ def _parse_args(argv):
                         help="path to saved settings JSON (for --headless)")
     parser.add_argument("--gui", action="store_true",
                         help="launch the graphical interface")
+    parser.add_argument("--build-profile", action="store_true",
+                        help="parse your master CV into profile.json (roles / "
+                             "skills / experience / education) and use it for "
+                             "all future searches + eligibility checks")
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     args = _parse_args(sys.argv[1:])
-    if args.gui:
+    if args.build_profile:
+        sys.exit(run_build_profile())
+    elif args.gui:
         import gui
         gui.launch()
     elif args.headless:

@@ -1,5 +1,5 @@
 """
-CV-derived profile: the candidate's default target roles and skills.
+CV-derived profile: default target roles and skills for Gagan Khanna.
 
 Parsed from the master CV (analytics / product / business profile).
 These drive (a) the default LinkedIn search keywords and (b) the offline
@@ -9,7 +9,18 @@ Edit these lists freely — they are the single source of truth for what
 "in coherence with my CV" means.
 """
 
+import json
+import os
 import re
+
+import config
+
+# NOTE: The role/skill/experience/education values below are DEFAULTS (the
+# original single-user profile). When a profile.json exists (built from the
+# user's own CV via profileio.py), it overrides these at import time — see the
+# "Per-user profile layer" section at the bottom of this file. Every consumer
+# reads these names at call time (e.g. cvprofile.YEARS_EXPERIENCE), so the
+# rebinding reaches the whole pipeline without touching those modules.
 
 # Default role keywords used as LinkedIn search terms (you can accept/edit
 # these at runtime). Ordered roughly by fit.
@@ -42,7 +53,7 @@ _STRONG_TITLE_WORDS = [
 
 # ---------------------------------------------------------------------------
 # CV FACTS — used by the JD eligibility analyzer (jdfit.py) to judge whether
-# the candidate actually qualifies for a posting, not just whether the title matches.
+# Gagan actually qualifies for a posting, not just whether the title matches.
 # Edit these to reflect your real profile.
 # ---------------------------------------------------------------------------
 # Full-time professional experience. Internships are tracked separately (they
@@ -255,3 +266,114 @@ def match_score(job_title: str, roles: list[str] | None = None) -> int:
             break
 
     return max(0, min(100, score))
+
+
+# ---------------------------------------------------------------------------
+# Per-user profile layer.
+#
+# The facts above (roles, skills, years, education) are DEFAULTS. When a
+# profile.json exists — built from the user's OWN CV by profileio.py — its
+# values override these module globals at import time, so match_score, jdfit and
+# jdfit_claude all judge against THAT user's real profile instead of a hardcoded
+# one. Consumers read these names at call time, so rebinding here reaches them
+# all with no change to those modules.
+#
+# profile.json holds only CV-derived facts (no credentials). See profileio.py.
+# ---------------------------------------------------------------------------
+
+# profile.json key  ->  the public module global it sets.
+PROFILE_FIELDS = {
+    "roles": "DEFAULT_ROLES",
+    "skills": "CV_SKILLS",
+    "foreign_domain_skills": "FOREIGN_DOMAIN_SKILLS",
+    "years_experience": "YEARS_EXPERIENCE",
+    "has_internship": "HAS_INTERNSHIP",
+    "has_bachelors": "HAS_BACHELORS",
+    "has_masters_equiv": "HAS_MASTERS_EQUIV",
+    "has_phd": "HAS_PHD",
+}
+
+# Snapshot the hardcoded seeds so a profile that omits a field falls back to a
+# sensible default rather than an empty/zero value.
+_DEFAULTS = {key: (list(globals()[name]) if isinstance(globals()[name], list)
+                   else globals()[name])
+             for key, name in PROFILE_FIELDS.items()}
+
+
+def defaults():
+    """A fresh copy of the built-in default profile (CV-derived facts)."""
+    return {k: (list(v) if isinstance(v, list) else v)
+            for k, v in _DEFAULTS.items()}
+
+
+def _coerce(key, value):
+    """
+    Coerce a loaded value to the type of its default; None/blank -> default.
+    Keeps a hand-edited or model-produced profile.json from breaking scoring.
+    """
+    default = _DEFAULTS[key]
+    if value is None:
+        return list(default) if isinstance(default, list) else default
+    if isinstance(default, bool):          # bool before int (bool is an int)
+        return bool(value)
+    if isinstance(default, int):
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return default
+    if isinstance(default, list):
+        if isinstance(value, (list, tuple)):
+            items = [str(x).strip() for x in value if str(x).strip()]
+        else:                              # tolerate a comma-separated string
+            items = [x.strip() for x in str(value).split(",") if x.strip()]
+        return items or list(default)
+    return value
+
+
+def normalize_profile(profile):
+    """
+    Return a COMPLETE, well-typed profile dict from a partial/raw one: every
+    PROFILE_FIELDS key present, each coerced to its default's type, missing keys
+    filled from the built-in defaults. Pure — does not touch module globals.
+    """
+    profile = profile or {}
+    return {key: _coerce(key, profile.get(key)) for key in PROFILE_FIELDS}
+
+
+def current_profile():
+    """A dict snapshot of the currently-active profile facts."""
+    out = {}
+    for key, name in PROFILE_FIELDS.items():
+        val = globals()[name]
+        out[key] = list(val) if isinstance(val, list) else val
+    return out
+
+
+def apply_profile(profile):
+    """
+    Make `profile` the active profile by rebinding this module's fact globals.
+
+    Normalizes first, so unknown keys are ignored, missing keys reset to the
+    built-in default, and values are type-coerced. Safe to call repeatedly.
+    """
+    norm = normalize_profile(profile)
+    for key, name in PROFILE_FIELDS.items():
+        globals()[name] = norm[key]
+
+
+def _load_profile_file():
+    """
+    Best-effort: if config.PROFILE_FILE exists, apply it over the defaults.
+    Never raises and never logs personal data — a missing/corrupt file simply
+    leaves the built-in defaults active.
+    """
+    try:
+        path = config.PROFILE_FILE
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                apply_profile(json.load(f))
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
+_load_profile_file()
